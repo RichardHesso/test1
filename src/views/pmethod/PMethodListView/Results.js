@@ -1,0 +1,331 @@
+import React, { useState, useRef } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import clsx from 'clsx';
+import numeral from 'numeral';
+import PropTypes from 'prop-types';
+import PerfectScrollbar from 'react-perfect-scrollbar';
+import {
+  Box,
+  Button,
+  Grid,
+  Card,
+  Checkbox,
+  InputAdornment,
+  FormControlLabel,
+  IconButton,
+  Link,
+  SvgIcon,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
+  makeStyles,
+  withStyles, Divider
+} from '@material-ui/core';
+import AccountBoxRounded  from '@material-ui/icons/AccountBoxRounded';
+import Pagination from '@material-ui/lab/Pagination';
+import {
+  Image as ImageIcon,
+  Edit as EditIcon,
+  ArrowRight as ArrowRightIcon,
+  Search as SearchIcon
+} from 'react-feather';
+import Label from '../../../components/Label';
+import TableSortLabel from '@material-ui/core/TableSortLabel';
+import { getBoolLabel } from './constants'
+import MenuItem from '@material-ui/core/MenuItem';
+import useSettings from '../../../hooks/useSettings'
+
+const StyledTableCell = withStyles((theme) => ({
+  // head: {
+  //   backgroundColor: 'black', //theme.palette.common.black,
+  //   color: 'white' //theme.palette.common.white,
+  // },
+  // body: {
+  //   fontSize: 14,
+  // },
+}))(TableCell);
+
+const StyledTableRow = withStyles((theme) => ({
+  root: {
+    '&:nth-of-type(odd)': {
+      backgroundColor: theme.palette.action.hover,
+    },
+  },
+}))(TableRow);
+
+const headCells = [
+  { id: 'id', label: '№', orderBy: 'id' },
+  { id: 'name', label: 'Название', orderBy: 'name' },
+  { id: 'is_active', label: 'Активно', orderBy: 'is_active', choiceMap: getBoolLabel },
+  { id: 'is_active_withdraw', label: 'Активно для вывода', orderBy: 'is_active_withdraw', choiceMap: getBoolLabel },
+  // { id: 'username', label: 'Юзер', orderBy: 'user__username' },
+  // { id: 'created_at', label: 'Дата', orderBy: 'created_at' },
+  // { id: 'wallet', label: 'Кошелек', orderBy: 'payment_wallet__wallet' },
+  // { id: 'order_type', label: 'Тип заявки', orderBy: 'order_type', choiceMap: order_typeIdtoName },
+  // { id: 'amount', label: 'Сумма', orderBy: 'amount' },
+  // { id: 'status', label: 'Статус', orderBy: 'status', choiceMap: getStatusLabel },
+  // { id: '', label: '', },
+  //{ id: 'cancel_at', label: 'CancelAt', orderBy: 'cancel_at' },
+];
+
+
+const useStyles = makeStyles((theme) => ({
+  root: {},
+  bulkOperations: {
+    position: 'relative'
+  },
+  bulkActions: {
+    paddingLeft: 4,
+    paddingRight: 4,
+    marginTop: 6,
+    position: 'absolute',
+    width: '100%',
+    zIndex: 2,
+    backgroundColor: theme.palette.background.default
+  },
+  bulkAction: {
+    marginLeft: theme.spacing(2)
+  },
+  queryField: {
+    width: 500
+  },
+  visuallyHidden: {
+    border: 0,
+    clip: 'rect(0 0 0 0)',
+    height: 1,
+    margin: -1,
+    overflow: 'hidden',
+    padding: 0,
+    position: 'absolute',
+    top: 20,
+    width: 1,
+  },
+  categoryField: {
+    flexBasis: 300,
+    marginLeft: 20
+  },
+  selectPageSize: {
+    flexBasis: 300,
+    marginLeft: 16,
+    marginBottom: 20
+  },
+  availabilityField: {
+    marginLeft: theme.spacing(2),
+    flexBasis: 200
+  },
+  stockField: {
+    marginLeft: theme.spacing(2)
+  },
+  shippableField: {
+    marginLeft: theme.spacing(2)
+  },
+  imageCell: {
+    fontSize: 0,
+    width: 68,
+    flexBasis: 68,
+    flexGrow: 0,
+    flexShrink: 0
+  },
+  image: {
+    height: 68,
+    width: 68
+  }
+}));
+
+const Results = ({ className, items, query, setQuery, openItemForm, ...rest }) => {
+
+  const classes = useStyles();
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [orderBy, setOrderBy] = useState(query.ordering.replace("-", ""))
+  const [orderDirection, setOrderDirection] = useState(query.ordering.startsWith('-') ? 'desc' : 'asc')
+
+  const searchRef = useRef()
+  const { saveSettings, settings } = useSettings();
+
+  const keyPressHandler = (event) => {
+    if (event.key === 'Enter') {
+        setQuery({...query, search: searchRef.current.value, page: 1})
+    }
+}
+
+const handleFilterStatusChange = (event) => {
+  setQuery({...query, filterStatus: event.target.value})
+};
+
+const handlePageSizeChange = (event) => {
+  setQuery({...query, page_size: event.target.value})
+  saveSettings({ page_size: event.target.value });
+  console.log(settings)
+};
+
+  const handlePageChange = (event, newPage) => {
+    setQuery({...query, page: newPage})
+  }
+
+  const handleSorting = (newOrderBy) => {
+    if (orderBy === newOrderBy) {
+      if (orderDirection === 'asc') {
+        setOrderDirection('desc')
+        setQuery({...query, ordering: '-' + newOrderBy})
+      } else {
+        setOrderDirection('asc')
+        setQuery({...query, ordering: newOrderBy})
+      }
+    } else {
+      setOrderDirection('asc')
+      setQuery({...query, ordering: newOrderBy})
+      setOrderBy(newOrderBy)
+    }
+  }
+
+  const isEqual = (obj1, obj2) => {
+    if (obj1 && obj2) {
+      if (obj1.id === obj2.id) {
+        return true
+      }
+    }
+    return false
+  }
+
+
+  const handleSelectAllItems = (event) => {
+    setSelectedItems(event.target.checked
+      ? items.map((item) => item.id)
+      : []);
+  };
+
+  const handleSelectOneItem = (event, itemId) => {
+    if (!selectedItems.includes(itemId)) {
+      setSelectedItems((prevSelected) => [...prevSelected, itemId]);
+    } else {
+      setSelectedItems((prevSelected) => prevSelected.filter((id) => id !== itemId));
+    }
+  };
+
+  const enableBulkOperations = selectedItems.length > 0;
+  const selectedSomeItems = selectedItems.length > 0 && selectedItems.length < items.length;
+  const selectedAllItems = selectedItems.length === items.length;
+
+  return (
+    <Card
+      className={clsx(classes.root, className)}
+      {...rest}
+    >
+      
+
+      {enableBulkOperations && (
+        <div className={classes.bulkOperations}>
+          <div className={classes.bulkActions}>
+            <Checkbox
+              checked={selectedAllItems}
+              indeterminate={selectedSomeItems}
+              onChange={handleSelectAllItems}
+            />
+            <Button
+              variant="outlined"
+              className={classes.bulkAction}
+            >
+              Delete
+            </Button>
+            {/* <Button
+              variant="outlined"
+              className={classes.bulkAction}
+            >
+              Edit
+            </Button> */}
+          </div>
+        </div>
+      )}
+
+      <Divider />
+
+      <PerfectScrollbar>
+        <Box minWidth={500}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                {/* <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={selectedAllItems}
+                    indeterminate={selectedSomeItems}
+                    onChange={handleSelectAllItems}
+                  />
+                </TableCell> */}
+
+                {headCells.map((headCell) => (
+                  <StyledTableCell
+                    key={headCell.id}
+                    sortDirection={orderBy === headCell.orderBy ? orderDirection : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === headCell.orderBy}
+                      direction={orderDirection}
+                      onClick={e => handleSorting(headCell.orderBy)}
+                    >
+                      {headCell.label}
+                      {orderBy === headCell.orderBy ? (
+                        <span className={classes.visuallyHidden}>
+                          {orderDirection === 'desc' ? 'sorted descending' : 'sorted ascending'}
+                        </span>
+                      ) : null}
+                    </TableSortLabel>
+                  </StyledTableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.results.map((item) => {
+                
+                const isOrderSelected = selectedItems.includes(item.id);
+
+                return (
+                  <StyledTableRow
+                    hover
+                    key={item.id}
+                    //selected={isEqual(item, selectedItem)}
+                    onClick={e => openItemForm(e, item)}
+                  >
+                    {/* <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={isItemSelected}
+                        onChange={(event) => handleSelectOneItem(event, item.id)}
+                        value={isItemSelected}
+                      />
+                    </TableCell> */}
+                    
+                    {headCells.map((headCell) => (
+                      <TableCell key={headCell.id}>
+                        {headCell['choiceMap'] ? headCell['choiceMap'](item[headCell.id]) : item[headCell.id]}
+                      </TableCell>
+                    ))}
+                    
+                  </StyledTableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+
+          <Grid container justify = "center">
+            <Pagination count={items.count} showFirstButton showLastButton onChange={handlePageChange} />
+          </Grid>       
+          
+        </Box>
+      </PerfectScrollbar>
+    </Card>
+  );
+};
+
+Results.propTypes = {
+  className: PropTypes.string,
+  items: PropTypes.array.isRequired
+};
+
+Results.defaultProps = {
+  items: []
+};
+
+export default Results;
